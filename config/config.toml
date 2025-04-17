@@ -1,0 +1,27 @@
+# Global LLM configuration
+#[llm]
+#model = "claude-3-7-sonnet-20250219"       # The LLM model to use
+#base_url = "https://api.anthropic.com/v1/" # API endpoint URL
+#api_key = "YOUR_API_KEY"                   # Your API key
+#max_tokens = 8192                          # Maximum number of tokens in the response
+#temperature = 0.0                          # Controls randomness
+
+[llm] # Amazon Bedrock
+api_type = "aws"                                       # Required
+model = "us.anthropic.claude-3-7-sonnet-20250219-v1:0" # Bedrock supported modelID
+base_url = "bedrock-runtime.us-east-1.amazonaws.com"   # Not used now
+max_tokens = 8192
+temperature = 1.0
+api_key = "bear"                                       # Required but not used for Bedrock
+
+# Optional configuration for specific LLM models
+[llm.vision]
+model = "claude-3-7-sonnet-20250219"       # The vision model to use
+base_url = "https://api.anthropic.com/v1/" # API endpoint URL for vision model
+api_key = "YOUR_API_KEY"                   # Your API key for vision model
+max_tokens = 8192                          # Maximum number of tokens in the response
+temperature = 0.0                          # Controls randomness for vision model
+
+# MCP (Model Context Protocol) configuration
+[mcp]
+server_reference = "app.mcp.server" # default server module reference
