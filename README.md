@@ -2,7 +2,7 @@
 
 steps to insall git
 
-sudo yum install -t git
+sudo yum install -y git
 
 The EC2 instance should have a role associated to access Bedrock models
 
@@ -14,6 +14,8 @@ Install UV
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 
+git clone openManus
+https://github.com/satishk01/OpenManus.git
 
 Create a new virtual environment and activate it:
 uv venv --python 3.12
@@ -28,5 +30,4 @@ playwright install
 run OpenManus:
 python main.py
 
-
-in teh folder config there is a file config.toml by default it is set to claude 3.7 we can switch to claude 3.5 v2 based on our availablity
+in the folder config there is a file config.toml by default it is set to claude 3.7 we can switch to claude 3.5 v2 based on our availablity
