@@ -233,16 +233,16 @@ class ClaudeHandler(BaseModelHandler):
                 }
                 openai_tool_calls = message.get("tool_calls", [])
                 if openai_tool_calls:
-                    bedrock_tool_use = {
-                        "toolUseId": openai_tool_calls[0]["id"],
-                        "name": openai_tool_calls[0]["function"]["name"],
-                        "input": json.loads(
-                            openai_tool_calls[0]["function"]["arguments"]
-                        ),
-                    }
-                    bedrock_message["content"].append({"toolUse": bedrock_tool_use})
-                    global CURRENT_TOOLUSE_ID
-                    CURRENT_TOOLUSE_ID = openai_tool_calls[0]["id"]
+                    # Handle ALL tool calls, not just the first one
+                    for tool_call in openai_tool_calls:
+                        bedrock_tool_use = {
+                            "toolUseId": tool_call["id"],
+                            "name": tool_call["function"]["name"],
+                            "input": json.loads(tool_call["function"]["arguments"]),
+                        }
+                        bedrock_message["content"].append({"toolUse": bedrock_tool_use})
+                        global CURRENT_TOOLUSE_ID
+                        CURRENT_TOOLUSE_ID = tool_call["id"]  # Keep track of the last one
                 bedrock_messages.append(bedrock_message)
             elif message.get("role") == "tool":
                 # Get tool use ID from the message itself if available
@@ -388,16 +388,16 @@ class NovaProHandler(BaseModelHandler):
                 }
                 openai_tool_calls = message.get("tool_calls", [])
                 if openai_tool_calls:
-                    bedrock_tool_use = {
-                        "toolUseId": openai_tool_calls[0]["id"],
-                        "name": openai_tool_calls[0]["function"]["name"],
-                        "input": json.loads(
-                            openai_tool_calls[0]["function"]["arguments"]
-                        ),
-                    }
-                    bedrock_message["content"].append({"toolUse": bedrock_tool_use})
-                    global CURRENT_TOOLUSE_ID
-                    CURRENT_TOOLUSE_ID = openai_tool_calls[0]["id"]
+                    # Handle ALL tool calls, not just the first one
+                    for tool_call in openai_tool_calls:
+                        bedrock_tool_use = {
+                            "toolUseId": tool_call["id"],
+                            "name": tool_call["function"]["name"],
+                            "input": json.loads(tool_call["function"]["arguments"]),
+                        }
+                        bedrock_message["content"].append({"toolUse": bedrock_tool_use})
+                        global CURRENT_TOOLUSE_ID
+                        CURRENT_TOOLUSE_ID = tool_call["id"]  # Keep track of the last one
                 bedrock_messages.append(bedrock_message)
             elif message.get("role") == "tool":
                 # Get tool use ID from the message itself if available
