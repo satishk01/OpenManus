@@ -17,6 +17,27 @@ import boto3
 CURRENT_TOOLUSE_ID = None
 
 
+# Class to handle OpenAI-style response formatting
+class OpenAIResponse:
+    def __init__(self, data):
+        # Recursively convert nested dicts and lists to OpenAIResponse objects
+        for key, value in data.items():
+            if isinstance(value, dict):
+                value = OpenAIResponse(value)
+            elif isinstance(value, list):
+                value = [
+                    OpenAIResponse(item) if isinstance(item, dict) else item
+                    for item in value
+                ]
+            setattr(self, key, value)
+
+    def model_dump(self, *args, **kwargs):
+        # Convert object to dict and add timestamp
+        data = self.__dict__
+        data["created_at"] = datetime.now().isoformat()
+        return data
+
+
 # Model Type Enumeration
 class ModelType(Enum):
     """Enumeration of supported model types"""
@@ -488,27 +509,6 @@ class NovaProHandler(BaseModelHandler):
                 "maxTokens": kwargs.get("max_tokens", self.model_config.max_tokens)
             }
         }
-
-
-# Class to handle OpenAI-style response formatting
-class OpenAIResponse:
-    def __init__(self, data):
-        # Recursively convert nested dicts and lists to OpenAIResponse objects
-        for key, value in data.items():
-            if isinstance(value, dict):
-                value = OpenAIResponse(value)
-            elif isinstance(value, list):
-                value = [
-                    OpenAIResponse(item) if isinstance(item, dict) else item
-                    for item in value
-                ]
-            setattr(self, key, value)
-
-    def model_dump(self, *args, **kwargs):
-        # Convert object to dict and add timestamp
-        data = self.__dict__
-        data["created_at"] = datetime.now().isoformat()
-        return data
 
 
 # Main client class for interacting with Amazon Bedrock
