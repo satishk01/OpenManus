@@ -13,7 +13,7 @@ from app.tool.bash import Bash
 from app.tool.browser_use_tool import BrowserUseTool
 from app.tool.create_chat_completion import CreateChatCompletion
 from app.tool.deep_research import DeepResearch
-from app.tool.file_operators import FileOperators
+
 from app.tool.mcp import MCPClients, MCPClientTool
 from app.tool.planning import PlanningTool
 from app.tool.python_execute import PythonExecute
@@ -45,7 +45,6 @@ class Manus(ToolCallAgent):
             
             # File and text operations
             StrReplaceEditor(),     # File editing and string replacement
-            FileOperators(),        # Advanced file operations
             
             # Web and research tools
             BrowserUseTool(),       # Web browser automation
