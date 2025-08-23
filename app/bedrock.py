@@ -220,7 +220,7 @@ class ClaudeHandler(BaseModelHandler):
         for message in messages:
             if message.get("role") == "system":
                 system_prompt = [{"text": message.get("content")}]
-            elif message.get("role") == "user":
+            elif message.get("role") == "user" and not message.get("_grouped_tool_results"):
                 bedrock_message = {
                     "role": message.get("role", "user"),
                     "content": [{"text": message.get("content")}],
@@ -258,6 +258,26 @@ class ClaudeHandler(BaseModelHandler):
                                 }
                             }
                         ],
+                    }
+                    bedrock_messages.append(bedrock_message)
+            elif message.get("role") == "user" and message.get("_grouped_tool_results"):
+                # Handle grouped tool results - create single user message with multiple tool results
+                tool_results = message.get("_grouped_tool_results", [])
+                bedrock_content = []
+                for tool_result in tool_results:
+                    tool_call_id = tool_result.get("tool_call_id", CURRENT_TOOLUSE_ID)
+                    if tool_call_id:
+                        bedrock_content.append({
+                            "toolResult": {
+                                "toolUseId": tool_call_id,
+                                "content": [{"text": tool_result.get("content")}],
+                            }
+                        })
+                
+                if bedrock_content:
+                    bedrock_message = {
+                        "role": "user",
+                        "content": bedrock_content,
                     }
                     bedrock_messages.append(bedrock_message)
             else:
@@ -375,7 +395,7 @@ class NovaProHandler(BaseModelHandler):
         for message in messages:
             if message.get("role") == "system":
                 system_prompt = [{"text": message.get("content")}]
-            elif message.get("role") == "user":
+            elif message.get("role") == "user" and not message.get("_grouped_tool_results"):
                 bedrock_message = {
                     "role": message.get("role", "user"),
                     "content": [{"text": message.get("content")}],
@@ -413,6 +433,26 @@ class NovaProHandler(BaseModelHandler):
                                 }
                             }
                         ],
+                    }
+                    bedrock_messages.append(bedrock_message)
+            elif message.get("role") == "user" and message.get("_grouped_tool_results"):
+                # Handle grouped tool results - create single user message with multiple tool results
+                tool_results = message.get("_grouped_tool_results", [])
+                bedrock_content = []
+                for tool_result in tool_results:
+                    tool_call_id = tool_result.get("tool_call_id", CURRENT_TOOLUSE_ID)
+                    if tool_call_id:
+                        bedrock_content.append({
+                            "toolResult": {
+                                "toolUseId": tool_call_id,
+                                "content": [{"text": tool_result.get("content")}],
+                            }
+                        })
+                
+                if bedrock_content:
+                    bedrock_message = {
+                        "role": "user",
+                        "content": bedrock_content,
                     }
                     bedrock_messages.append(bedrock_message)
             else:
@@ -566,44 +606,53 @@ class ChatCompletions:
         """Validate and fix tool use/result pairing to prevent Bedrock validation errors"""
         validated_messages = []
         pending_tool_calls = {}  # tool_call_id -> tool_call_info
+        pending_tool_results = []  # Collect tool results to group them
         
         for message in messages:
             if message.get("role") == "assistant" and message.get("tool_calls"):
+                # If we have pending tool results, add them as a grouped message first
+                if pending_tool_results:
+                    validated_messages.append(self._create_grouped_tool_result_message(pending_tool_results))
+                    pending_tool_results = []
+                
                 # Track tool calls from assistant
                 for tool_call in message.get("tool_calls", []):
                     pending_tool_calls[tool_call["id"]] = tool_call
                 validated_messages.append(message)
                 
             elif message.get("role") == "tool":
-                # Only include tool results that have corresponding tool calls
+                # Collect tool results to group them
                 tool_call_id = message.get("tool_call_id")
                 print(f"DEBUG: Processing tool result with tool_call_id: {tool_call_id}")
                 print(f"DEBUG: Pending tool calls: {list(pending_tool_calls.keys())}")
                 
                 if tool_call_id and tool_call_id in pending_tool_calls:
-                    validated_messages.append(message)
-                    # Remove from pending since we found the result
+                    pending_tool_results.append(message)
                     pending_tool_calls.pop(tool_call_id, None)
-                    print(f"DEBUG: Matched tool result for ID: {tool_call_id}")
+                    print(f"DEBUG: Collected tool result for ID: {tool_call_id}")
                 else:
                     print(f"DEBUG: Skipping orphaned tool result message: tool_call_id={tool_call_id}, content={message.get('content', '')[:100]}")
-                    print(f"DEBUG: Available pending IDs: {list(pending_tool_calls.keys())}")
-                    
-                    # TEMPORARY FIX: If we have pending tool calls and this tool result doesn't match,
-                    # try to match it with the first available pending tool call
-                    if pending_tool_calls and not tool_call_id:
-                        first_pending_id = list(pending_tool_calls.keys())[0]
-                        print(f"DEBUG: FALLBACK - Assigning tool result to first pending ID: {first_pending_id}")
-                        # Create a new message with the correct tool_call_id
-                        fixed_message = message.copy()
-                        fixed_message["tool_call_id"] = first_pending_id
-                        validated_messages.append(fixed_message)
-                        pending_tool_calls.pop(first_pending_id, None)
                     
             else:
+                # If we have pending tool results, add them as a grouped message first
+                if pending_tool_results:
+                    validated_messages.append(self._create_grouped_tool_result_message(pending_tool_results))
+                    pending_tool_results = []
                 validated_messages.append(message)
+        
+        # Add any remaining tool results at the end
+        if pending_tool_results:
+            validated_messages.append(self._create_grouped_tool_result_message(pending_tool_results))
                 
         return validated_messages
+    
+    def _create_grouped_tool_result_message(self, tool_results: List[Dict]) -> Dict:
+        """Create a single user message with multiple tool results"""
+        return {
+            "role": "user", 
+            "content": f"Tool results: {len(tool_results)} results",
+            "_grouped_tool_results": tool_results  # Store original results for processing
+        }
 
     def _get_model_handler(self, model_id: str) -> BaseModelHandler:
         """Get or create model handler for the given model ID"""
