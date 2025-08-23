@@ -577,12 +577,28 @@ class ChatCompletions:
             elif message.get("role") == "tool":
                 # Only include tool results that have corresponding tool calls
                 tool_call_id = message.get("tool_call_id")
+                print(f"DEBUG: Processing tool result with tool_call_id: {tool_call_id}")
+                print(f"DEBUG: Pending tool calls: {list(pending_tool_calls.keys())}")
+                
                 if tool_call_id and tool_call_id in pending_tool_calls:
                     validated_messages.append(message)
                     # Remove from pending since we found the result
                     pending_tool_calls.pop(tool_call_id, None)
+                    print(f"DEBUG: Matched tool result for ID: {tool_call_id}")
                 else:
-                    print(f"DEBUG: Skipping orphaned tool result message: {message.get('content', '')[:100]}")
+                    print(f"DEBUG: Skipping orphaned tool result message: tool_call_id={tool_call_id}, content={message.get('content', '')[:100]}")
+                    print(f"DEBUG: Available pending IDs: {list(pending_tool_calls.keys())}")
+                    
+                    # TEMPORARY FIX: If we have pending tool calls and this tool result doesn't match,
+                    # try to match it with the first available pending tool call
+                    if pending_tool_calls and not tool_call_id:
+                        first_pending_id = list(pending_tool_calls.keys())[0]
+                        print(f"DEBUG: FALLBACK - Assigning tool result to first pending ID: {first_pending_id}")
+                        # Create a new message with the correct tool_call_id
+                        fixed_message = message.copy()
+                        fixed_message["tool_call_id"] = first_pending_id
+                        validated_messages.append(fixed_message)
+                        pending_tool_calls.pop(first_pending_id, None)
                     
             else:
                 validated_messages.append(message)
@@ -646,6 +662,15 @@ class ChatCompletions:
         if tool_messages:
             print(f"DEBUG: Found {len(tool_messages)} tool result messages")
             print(f"DEBUG: Found {len(assistant_messages_with_tools)} assistant messages with tool calls")
+            
+            # Debug tool message details
+            for i, msg in enumerate(tool_messages):
+                print(f"DEBUG: Tool message {i}: tool_call_id={msg.get('tool_call_id')}, content={msg.get('content', '')[:50]}")
+            
+            for i, msg in enumerate(assistant_messages_with_tools):
+                tool_calls = msg.get('tool_calls', [])
+                for j, tc in enumerate(tool_calls):
+                    print(f"DEBUG: Assistant tool call {i}.{j}: id={tc.get('id')}, name={tc.get('function', {}).get('name')}")
             
         # Validate tool use/result pairing
         messages = self._validate_tool_messages(messages)
