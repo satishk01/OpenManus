@@ -9,10 +9,16 @@ from app.logger import logger
 from app.prompt.manus import NEXT_STEP_PROMPT, SYSTEM_PROMPT
 from app.tool import Terminate, ToolCollection
 from app.tool.ask_human import AskHuman
+from app.tool.bash import Bash
 from app.tool.browser_use_tool import BrowserUseTool
+from app.tool.create_chat_completion import CreateChatCompletion
+from app.tool.deep_research import DeepResearch
+from app.tool.file_operators import FileOperators
 from app.tool.mcp import MCPClients, MCPClientTool
+from app.tool.planning import PlanningTool
 from app.tool.python_execute import PythonExecute
 from app.tool.str_replace_editor import StrReplaceEditor
+from app.tool.web_search import WebSearch
 
 
 class Manus(ToolCallAgent):
@@ -30,14 +36,31 @@ class Manus(ToolCallAgent):
     # MCP clients for remote tool access
     mcp_clients: MCPClients = Field(default_factory=MCPClients)
 
-    # Add general-purpose tools to the tool collection
+    # Add all available tools to the tool collection
     available_tools: ToolCollection = Field(
         default_factory=lambda: ToolCollection(
-            PythonExecute(),
-            BrowserUseTool(),
-            StrReplaceEditor(),
-            AskHuman(),
-            Terminate(),
+            # Core execution tools
+            PythonExecute(),        # Execute Python code
+            Bash(),                 # Execute bash/shell commands
+            
+            # File and text operations
+            StrReplaceEditor(),     # File editing and string replacement
+            FileOperators(),        # Advanced file operations
+            
+            # Web and research tools
+            BrowserUseTool(),       # Web browser automation
+            WebSearch(),            # Web search functionality
+            DeepResearch(),         # Advanced research with multiple sources
+            
+            # AI and planning tools
+            CreateChatCompletion(), # Create additional LLM conversations
+            PlanningTool(),         # Advanced task planning
+            
+            # User interaction
+            AskHuman(),             # Ask user for input
+            
+            # Control flow
+            Terminate(),            # End conversation
         )
     )
 
