@@ -13,8 +13,9 @@ import boto3
 
 
 # Global variables to track the current tool use ID across function calls
-# Tmp solution
+# Tmp solution - improved tracking
 CURRENT_TOOLUSE_ID = None
+TOOL_USE_HISTORY = []  # Track tool use IDs in order
 
 
 # Class to handle OpenAI-style response formatting
@@ -244,18 +245,21 @@ class ClaudeHandler(BaseModelHandler):
                     CURRENT_TOOLUSE_ID = openai_tool_calls[0]["id"]
                 bedrock_messages.append(bedrock_message)
             elif message.get("role") == "tool":
-                bedrock_message = {
-                    "role": "user",
-                    "content": [
-                        {
-                            "toolResult": {
-                                "toolUseId": CURRENT_TOOLUSE_ID,
-                                "content": [{"text": message.get("content")}],
+                # Get tool use ID from the message itself if available
+                tool_call_id = message.get("tool_call_id", CURRENT_TOOLUSE_ID)
+                if tool_call_id:
+                    bedrock_message = {
+                        "role": "user",
+                        "content": [
+                            {
+                                "toolResult": {
+                                    "toolUseId": tool_call_id,
+                                    "content": [{"text": message.get("content")}],
+                                }
                             }
-                        }
-                    ],
-                }
-                bedrock_messages.append(bedrock_message)
+                        ],
+                    }
+                    bedrock_messages.append(bedrock_message)
             else:
                 raise ValueError(f"Invalid role: {message.get('role')}")
         return system_prompt, bedrock_messages
@@ -396,18 +400,21 @@ class NovaProHandler(BaseModelHandler):
                     CURRENT_TOOLUSE_ID = openai_tool_calls[0]["id"]
                 bedrock_messages.append(bedrock_message)
             elif message.get("role") == "tool":
-                bedrock_message = {
-                    "role": "user",
-                    "content": [
-                        {
-                            "toolResult": {
-                                "toolUseId": CURRENT_TOOLUSE_ID,
-                                "content": [{"text": message.get("content")}],
+                # Get tool use ID from the message itself if available
+                tool_call_id = message.get("tool_call_id", CURRENT_TOOLUSE_ID)
+                if tool_call_id:
+                    bedrock_message = {
+                        "role": "user",
+                        "content": [
+                            {
+                                "toolResult": {
+                                    "toolUseId": tool_call_id,
+                                    "content": [{"text": message.get("content")}],
+                                }
                             }
-                        }
-                    ],
-                }
-                bedrock_messages.append(bedrock_message)
+                        ],
+                    }
+                    bedrock_messages.append(bedrock_message)
             else:
                 raise ValueError(f"Invalid role: {message.get('role')}")
         return system_prompt, bedrock_messages
@@ -555,6 +562,33 @@ class ChatCompletions:
         self.client = client
         self._handler_cache = {}  # Cache handlers for performance
 
+    def _validate_tool_messages(self, messages: List[Dict]) -> List[Dict]:
+        """Validate and fix tool use/result pairing to prevent Bedrock validation errors"""
+        validated_messages = []
+        pending_tool_calls = {}  # tool_call_id -> tool_call_info
+        
+        for message in messages:
+            if message.get("role") == "assistant" and message.get("tool_calls"):
+                # Track tool calls from assistant
+                for tool_call in message.get("tool_calls", []):
+                    pending_tool_calls[tool_call["id"]] = tool_call
+                validated_messages.append(message)
+                
+            elif message.get("role") == "tool":
+                # Only include tool results that have corresponding tool calls
+                tool_call_id = message.get("tool_call_id")
+                if tool_call_id and tool_call_id in pending_tool_calls:
+                    validated_messages.append(message)
+                    # Remove from pending since we found the result
+                    pending_tool_calls.pop(tool_call_id, None)
+                else:
+                    print(f"DEBUG: Skipping orphaned tool result message: {message.get('content', '')[:100]}")
+                    
+            else:
+                validated_messages.append(message)
+                
+        return validated_messages
+
     def _get_model_handler(self, model_id: str) -> BaseModelHandler:
         """Get or create model handler for the given model ID"""
         if model_id not in self._handler_cache:
@@ -604,6 +638,18 @@ class ChatCompletions:
     def _convert_openai_messages_to_bedrock_format(self, messages, model_id: str):
         # Use model handler for message formatting
         handler = self._get_model_handler(model_id)
+        
+        # Debug logging for tool message issues
+        tool_messages = [msg for msg in messages if msg.get("role") == "tool"]
+        assistant_messages_with_tools = [msg for msg in messages if msg.get("role") == "assistant" and msg.get("tool_calls")]
+        
+        if tool_messages:
+            print(f"DEBUG: Found {len(tool_messages)} tool result messages")
+            print(f"DEBUG: Found {len(assistant_messages_with_tools)} assistant messages with tool calls")
+            
+        # Validate tool use/result pairing
+        messages = self._validate_tool_messages(messages)
+            
         return handler.format_messages(messages)
 
     def _convert_bedrock_response_to_openai_format(self, bedrock_response, model_id: str):
