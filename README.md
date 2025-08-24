@@ -127,3 +127,51 @@ If you encounter model-related errors:
 - `UNSUPPORTED_MODEL`: Model type not supported
 - `NO_HANDLER`: No handler available for the model type
 - `HANDLER_CREATION_ERROR`: Unexpected error during handler creation
+
+
+Please note this runs better in ubuntu as it can use playwrigt there. 
+
+Additional instructions to install softweare in Ubuntu
+
+#### steps to install git
+bash# Update package list
+sudo apt update
+
+# Install git
+sudo apt install git
+
+# Verify installation
+git --version
+
+#### steps to install UV
+
+bash# Install UV using the official installer
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+#### steps to install AWS Cli as this is by default not available with ubuntu
+
+# Reload your shell or source your profile
+source ~/.bashrc
+# or for zsh users:
+# source ~/.zshrc
+
+# Verify installation
+uv --version
+
+sudo playwright install-deps
+
+# Download the installer
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+
+# Install unzip if not already installed
+sudo apt update
+sudo apt install unzip
+
+# Unzip the installer
+unzip awscliv2.zip
+
+# Run the installer
+sudo ./aws/install
+
+# Verify installation
+aws --version
